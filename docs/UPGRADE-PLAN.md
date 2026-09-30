@@ -30,3 +30,9 @@ Compose UI is still a placeholder and the Android build is unverified locally.
 
 - 7 more edge-case tests (13 total) pinning current behaviour: zero/signed zero, prefix rules per radix (`0b1` is hex in base 16), separators, Thai/full-width digits (accepted via `Character.digit`), grouping, 64-bit two's-complement bounds, non-canonical Roman numerals. No core bugs found. Verified with `./gradlew -p core test --offline`.
 - Still not verified locally: the Compose `app/` (no Android SDK; dl.google.com is blocked here).
+
+## Done in this pass (pass 3)
+
+- Fixed round-trip: `allBases` shows DEC as `1,234,567`, but `parse` rejected that text. Base 10 now accepts strict 3-digit comma grouping only; `1,5` (decimal comma) and `1,2345` are still rejected rather than silently read as 15 / 12345.
+- `parse` now accepts NBSP / narrow no-break space group separators, the Unicode minus sign (U+2212), and ignores zero-width characters/BOM (previously "not a valid digit" errors for pasted values). Tabs inside numbers are still rejected.
+- 3 regression tests (16 total), verified with `./gradlew -p core test --offline`.

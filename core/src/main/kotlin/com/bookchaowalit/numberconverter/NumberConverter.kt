@@ -13,16 +13,29 @@ object NumberConverter {
     }
 
     /**
-     * Parses [input] in [radix]. Accepts an optional sign, `0x`/`0b`/`0o`
-     * prefixes matching the radix, and `_`/space digit separators.
+     * Parses [input] in [radix]. Accepts an optional sign (including the
+     * Unicode minus U+2212), `0x`/`0b`/`0o` prefixes matching the radix, `_`
+     * and any Unicode space character (NBSP, thin space...; not tabs or line
+     * breaks) as digit separators, and in
+     * base 10 comma thousands grouping ("1,234,567", as [allBases] displays
+     * it). Zero-width characters and a BOM are ignored.
      */
     fun parse(input: String, radix: Int): BigInteger {
         checkRadix(radix)
-        var s = input.trim().replace("_", "").replace(" ", "")
+        var s = input.filterNot { it in INVISIBLE }.trim()
+            .filterNot { it == '_' || Character.getType(it) == Character.SPACE_SEPARATOR.toInt() }
+            .replace('\u2212', '-')
         var negative = false
         if (s.startsWith("-") || s.startsWith("+")) {
             negative = s[0] == '-'
             s = s.substring(1)
+        }
+        if (radix == 10 && ',' in s) {
+            // Only strict thousands grouping: "1,5" is a decimal comma, not 15.
+            val groups = s.split(',')
+            val ok = groups.first().length in 1..3 && groups.drop(1).all { it.length == 3 }
+            if (!ok) throw ConversionException("\"$input\" is not a whole number with 3-digit comma grouping")
+            s = groups.joinToString("")
         }
         val prefix = when (radix) { 16 -> "0x"; 2 -> "0b"; 8 -> "0o"; else -> null }
         if (prefix != null && s.lowercase().startsWith(prefix)) s = s.substring(2)
@@ -41,6 +54,8 @@ object NumberConverter {
         val grouped = if (groupSize == 0) digits else digits.reversed().chunked(groupSize).joinToString(separator.toString()).reversed()
         return if (value.signum() < 0) "-$grouped" else grouped
     }
+
+    private val INVISIBLE = setOf('\u200B', '\u200C', '\u200D', '\u2060', '\uFEFF')
 
     fun convert(input: String, fromRadix: Int, toRadix: Int): String = format(parse(input, fromRadix), toRadix)
 
